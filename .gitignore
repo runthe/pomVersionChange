@@ -34,3 +34,7 @@ gradle/
 gradlew*
 .gradle
 build/
+
+pom.xml
+pomVersion
+pomVersion.exe
