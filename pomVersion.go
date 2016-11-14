@@ -30,9 +30,12 @@ const (
 
 func main() {
 	pwd := getLocalDirectory()
+
 	localPomFiles := readPomFiles(pwd)
 
-	fmt.Println("==BySoo==")
+	fmt.Println("==Soo==")
+	fmt.Println("Pwd:", pwd)
+	fmt.Println("pom.length", len(localPomFiles))
 
 	if len(localPomFiles) == 0 {
 		changePomversionByManual()
@@ -80,11 +83,11 @@ func containsOnly(s string, set string) bool {
 }
 
 //https://github.com/blang/semver/blob/master/semver.go
-func calculateNextPatchVersion(rootVersion string) (nextVersion string, err error) {
-	// Split into major.minor.(patch+pr+meta)
-	parts := strings.SplitN(rootVersion, ".", 3)
+func calculateNextPatchVersion(rootVersion string) (string, error) {
+	parts := strings.SplitN(rootVersion, ".", 4)
 
-	if len(parts) != 3 {
+	//Todo:: 우리 회사는 특이하게 버전이 4개나 있다. 이 소스는 어차피 안볼꺼지만 기억 주석용으로 남기기
+	if !(len(parts) >= 3) {
 		return rootVersion, fmt.Errorf("No Major.Minor.Patch elements found")
 	}
 
@@ -114,8 +117,31 @@ func calculateNextPatchVersion(rootVersion string) (nextVersion string, err erro
 		return rootVersion, err
 	}
 
+	var minorTwo uint64
+
+	// MinorTWO
+	if len(parts) == 4 {
+		if !containsOnly(parts[2], numbers) {
+			return rootVersion, fmt.Errorf("Invalid character(s) found in minorTwo number %q", parts[2])
+		}
+		if hasLeadingZeroes(parts[2]) {
+			return rootVersion, fmt.Errorf("MinorTwo number must not contain leading zeroes %q", parts[2])
+		}
+
+		minorTwo, err = strconv.ParseUint(parts[2], 10, 64)
+		if err != nil {
+			return rootVersion, err
+		}
+	}
+
 	var build, prerelease []string
-	patchStr := parts[2]
+	var patchStr string;
+
+	if len(parts) == 3 {
+		patchStr = parts[2]
+	} else {
+		patchStr = parts[3]
+	}
 
 	if buildIndex := strings.IndexRune(patchStr, '+'); buildIndex != -1 {
 		build = strings.Split(patchStr[buildIndex + 1:], ".")
@@ -145,6 +171,12 @@ func calculateNextPatchVersion(rootVersion string) (nextVersion string, err erro
 	b = append(b, '.')
 	b = strconv.AppendUint(b, minor, 10)
 	b = append(b, '.')
+
+	if (len(parts) == 4) {
+		b = strconv.AppendUint(b, minorTwo, 10)
+		b = append(b, '.')
+	}
+
 	b = strconv.AppendUint(b, patch + 1, 10)
 
 	if len(prerelease) > 0 {
@@ -181,11 +213,11 @@ func readPomFilesRootVersion(pomFiles []string) (rootVersion string) {
 				if packaging.Text() == PackagingPom {
 					if version := root.SelectElement(VersionTag); version != nil {
 						rootVersion = version.Text()
+						break;
 					}
 				}
 			}
 
-			break;
 		}
 	}
 
